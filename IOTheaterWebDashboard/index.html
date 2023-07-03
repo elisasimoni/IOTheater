@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IOTheater</title>
+    <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js">
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .state {
+            width: 250px;
+            height: 150px;
+            margin: 20px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .state h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .led {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+
+        .curtains {
+            width: 150px;
+            height: 150px;
+            background-color: #ccc;
+            margin-bottom: 10px;
+        }
+
+        .music {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .spotlight {
+            width: 180px;
+            height: 180px;
+            border: 5px solid #000;
+            margin-bottom: 10px;
+        }
+
+        .graph {
+            width: 300px;
+            height: 200px;
+            border: 1px solid #000;
+        }
+        .graph-container {
+            width: 500px; /* Imposta la larghezza desiderata */
+            height: 500px; /* Imposta l'altezza desiderata */
+        }
+        .presence-state {
+            margin-top: -200px;
+            width: 600px; /* Imposta la larghezza desiderata */
+            height: 400px; /* Imposta l'altezza desiderata */
+            /* Resto del tuo stile specifico per il singolo stato */
+        }
+
+
+    </style>
+</head>
+<body>
+<H1 style="text-align: center">IOTheater</H1>
+<h2 style="text-align: center;margin-bottom: -100px;">Smart Theater Concept</h2>
+<div class="container">
+    <div class="state">
+        <h2>Led RGB</h2>
+        <div class="led" id="led"></div>
+    </div>
+
+    <div class="state">
+        <h2>Curtains</h2>
+        <div class="curtains" id="curtains"></div>
+    </div>
+
+    <div class="state">
+        <h2>Music</h2>
+        <div class="music" id="music"></div>
+    </div>
+
+    <div class="state">
+        <h2>Spotlight</h2>
+        <div class="spotlight" id="spotlight"><div id="imageContainer"></div></div>
+    </div>
+
+    <div class="state presence-state">
+        <h2>Actor Presence BarChart</h2>
+        <div class="graph-container" style="width: 600px; height: 600px;">
+            <canvas class="graph" id="presenceChart"></canvas>
+        </div>
+    </div>
+
+
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+
+
+    var show = false;
+
+    socket.on('curtains', function(color) {
+        var curtains = document.getElementById('curtains');
+        curtains.style.backgroundColor = color;
+        if(color==='grey'){
+            show=false;
+
+        }else{
+            show=true;
+
+        }
+    });
+
+    socket.on('led', function(color) {
+        var led = document.getElementById('led');
+
+        led.style.backgroundColor = color;
+    });
+
+    function updateImage(imageName) {
+        let imageUrl = ``; // Sostituisci con il percorso o l'URL dell'immagine di Tetris
+        if(imageName===1){
+            imageUrl="tetris.jpeg";
+        }else if(imageName===2){
+            imageUrl="got.png";
+        }else if(imageName===3){
+            imageUrl="sw.png";
+
+        }
+
+        // Creazione dell'elemento immagine
+        const tetrisImg = document.createElement('img');
+        tetrisImg.src = imageUrl;
+
+        // Ottieni il riferimento al div in cui desideri visualizzare l'immagine
+        const imgContainer = document.getElementById('imgContainer');
+
+        // Svuota il contenuto del div
+        imgContainer.innerHTML = '';
+
+        // Aggiunta dell'immagine al div
+        imgContainer.appendChild(tetrisImg);
+    }
+    socket.on('music', function(text) {
+        var music = document.getElementById('music');
+        music.textContent = text;
+
+    });
+    socket.on('music2',function(song){
+        updateImage(song);
+
+    });
+
+
+
+
+
+        const maxDataPoints = 60; // Numero massimo di punti da visualizzare sul grafico
+
+        const chart = new Chart("presenceChart", {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Presenza',
+                    data: [],
+                    fill: true,
+                    backgroundColor: 'rgba(255,213,222,0.82)',
+                    borderColor: 'rgb(255,0,35)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        suggestedMax: 1.50
+                    }
+                }
+            }
+        });
+
+        socket.on('spotlight', function (color) {
+            var spotlightElement = document.getElementById('spotlight');
+            spotlightElement.style.backgroundColor = color;
+        });
+        // Ricezione dei dati di presenza tramite socket.io
+        socket.on('presence', function (presence) {
+            // Aggiorna il grafico con i nuovi dati
+            const data = chart.data.datasets[0].data;
+            const labels = chart.data.labels;
+
+            // Rimuovi i punti più vecchi se il numero di registrazioni supera maxDataPoints
+            if (data.length >= maxDataPoints) {
+                data.shift(); // Rimuovi il primo punto
+                labels.shift(); // Rimuovi la prima etichetta
+            }
+
+            // Aggiungi il nuovo punto e l'etichetta
+            data.push(presence);
+            labels.push('');
+
+            chart.update();
+        });
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
+
